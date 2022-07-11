@@ -1,35 +1,51 @@
 [
   {
-    "name": "n_estimators",
-    "short_desc": "The number of trees in the forest.",
-    "default": 100,
+    "name": "n_neighbors",
+    "short_desc": "Number of neighbors to use by default for kneighbors queries",
+    "default": 5,
     "type": "int",
     "search_type": "uniform",
-    "range_low": 100,
-    "range_high": 500,
+    "range_low": 5,
+    "range_high": 20,
     "run_HPO": true
   },
   {
-    "name": "min_samples_split",
-    "short_desc": "The minimum number of samples required to split an internal node",
+    "name": "weights",
+    "short_desc": "Weight function used in prediction.",
+    "default": "uniform",
+    "type": "categorical",
+    "categorical_vals": ["uniform", "distance"],
+    "run_HPO": true
+  },
+
+  {
+    "name": "p",
+    "short_desc": "Power parameter for the Minkowski metric.",
     "default": 2,
     "type": "int",
     "search_type": "uniform",
-    "range_low": 2,
-    "range_high": 10,
+    "range_low": 1,
+    "range_high": 3,
     "run_HPO": true
   },
 
   {
-    "name": "min_samples_leaf",
-    "short_desc": "The minimum number of samples required to be at a leaf node.",
-    "default": 1,
+    "name": "algorithm",
+    "short_desc": "Algorithm used to compute the nearest neighbors.",
+    "default": "auto",
+    "type": "categorical",
+    "categorical_vals": ["auto", "ball_tree", "kd_tree"],
+    "run_HPO": false
+  },
+
+  {
+    "name": "leaf_size",
+    "short_desc": "Leaf size passed to BallTree or KDTree.",
+    "default": 30,
     "type": "int",
     "search_type": "uniform",
-    "range_low": 1,
-    "range_high": 20,
-    "run_HPO": true
+    "range_low": 10,
+    "range_high": 50,
+    "run_HPO": false
   }
-
-
 ]

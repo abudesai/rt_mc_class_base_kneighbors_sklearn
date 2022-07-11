@@ -13,8 +13,6 @@ from sklearn.neighbors import KNeighborsClassifier
 model_fname = "model.save"
 MODEL_NAME = "mc_kneighbors_sklearn"
 
-COST_THRESHOLD = float('inf')
-
 
 class Classifier(): 
     
