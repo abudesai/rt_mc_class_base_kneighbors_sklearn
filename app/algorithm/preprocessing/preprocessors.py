@@ -341,6 +341,30 @@ class TargetOneHotEncoder(BaseEstimator, TransformerMixin):
         transformed_data = pd.concat(df_list, axis=1, ignore_index=True) 
         transformed_data.columns =  list(data.columns) + self.col_names
         return transformed_data
+
+
+class CustomLabelEncoder(BaseEstimator, TransformerMixin): 
+    def __init__(self, target_col) -> None:
+        super().__init__()
+        self.target_col = target_col
+        self.le = LabelEncoder()
+
+
+    def fit(self, data):                
+        self.le.fit(data[self.target_col])             
+        self.classes_ = self.le.classes_ 
+        return self 
+    
+    
+    def transform(self, data): 
+        if self.target_col in data.columns: 
+            # data[self.target_col] = self.le.transform(data[self.target_col])
+            
+            le_dict = dict(zip(self.classes_, self.le.transform(self.classes_)))
+            data[self.target_col] = data[self.target_col].apply(lambda x: le_dict.get(x, "__UNK__"))
+            data = data[data[self.target_col] != "__UNK__"]
+        return data
+    
     
 
 class XYSplitter(BaseEstimator, TransformerMixin): 
@@ -350,17 +374,14 @@ class XYSplitter(BaseEstimator, TransformerMixin):
     
     def fit(self, data): return self
     
-    def transform(self, data):  
-        one_target_cols = [col for col in data.columns if col.startswith(self.target_col + "__")]
-        if len(one_target_cols) > 0: 
-            y = data[one_target_cols].values
+    def transform(self, data): 
+        if self.target_col in data.columns: 
+            y = data[self.target_col].values
         else: 
             y = None
         
-        not_X_cols = [ self.id_col ] + one_target_cols 
-        X_cols = [ col for col in data.columns if col not in not_X_cols ]
-        X = data[X_cols].values
-                
-        return { 'X': X, 'y': y }
-    
-
+        not_X_cols = [ self.id_col, self.target_col ] 
+        X_cols = [ col for col in data.columns if col not in not_X_cols ]        
+        X = data[X_cols].values   
+        ids = data[self.id_col].values        
+        return { 'X': X, 'y': y, "ids":ids  }

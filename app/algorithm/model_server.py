@@ -38,7 +38,7 @@ class ModelServer:
         else: return self.model
         
     
-    def _get_predictions(self, data, data_schema):  
+    def _get_predictions(self, data, data_schema, return_probs = True):  
         preprocessor = self._get_preprocessor()
         model = self._get_model()
         
@@ -48,39 +48,31 @@ class ModelServer:
         # transform data - returns a dict of X (transformed input features) and Y(targets, if any, else None)
         proc_data = preprocessor.transform(data)          
         # Grab input features for prediction
-        pred_X = proc_data['X'].astype(np.float)        
+        pred_X, pred_ids = proc_data['X'].astype(np.float), proc_data['ids']      
         # make predictions
-        preds = model.predict_proba( pred_X )
+        if return_probs:
+            preds = model.predict_proba( pred_X )
+        else: 
+            preds = model.predict( pred_X )
         
-        preds2 = np.zeros(shape=[pred_X.shape[0] , len(preds)])
-        for i, c in enumerate(preds):
-            preds2[:, i] = c[:, 1]
-        
-        return preds2    
+        return preds, pred_ids
     
     
-    def predict_proba(self, data, data_schema):  
-        
-        preds = self._get_predictions(data, data_schema)
-        # get class names (labels)
+    def predict_proba(self, data, data_schema):          
+        preds, pred_ids = self._get_predictions(data, data_schema, return_probs=True)
         class_names = pipeline.get_class_names(self.preprocessor, model_cfg)        
-        # get the name for the id field
         id_field_name = data_schema["inputDatasets"]["multiClassClassificationBaseMainInput"]["idField"]  
-        # return te prediction df with the id and class probability fields
+        id_df = pd.DataFrame(pred_ids, columns=[id_field_name])
         
-        preds_df = pd.concat( [ data[[id_field_name]].copy(), pd.DataFrame(preds, columns = class_names)], axis=1 )
+        # return the prediction df with the id and class probability fields        
+        preds_df = pd.concat( [ id_df, pd.DataFrame(preds, columns = class_names)], axis=1 )
         return preds_df 
     
     
     
-    def predict(self, data, data_schema):
-        preds = self._get_predictions(data, data_schema)   
-        class_names = pipeline.get_class_names(self.preprocessor, model_cfg)  
-        
-        # get the name for the id field
-        id_field_name = data_schema["inputDatasets"]["multiClassClassificationBaseMainInput"]["idField"]  
-        preds_df = data[[id_field_name]].copy()
-        
-        preds_df['prediction'] = pd.DataFrame(preds, columns = class_names).idxmax(axis=1)       
-        
+    def predict(self, data, data_schema):        
+        preds_df = self.predict_proba(data, data_schema)
+        class_names = [ str(c) for c in preds_df.columns[1:] ]          
+        preds_df["prediction"] = pd.DataFrame(preds_df[class_names], columns = class_names).idxmax(axis=1)     
+        preds_df.drop(class_names, axis=1, inplace=True) 
         return preds_df

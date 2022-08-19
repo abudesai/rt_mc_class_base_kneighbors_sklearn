@@ -36,6 +36,10 @@ test_results_path = "test_results"
 if not os.path.exists(test_results_path): os.mkdir(test_results_path)
 
 
+# change this to whereever you placed your local testing datasets
+local_datapath = "./../../datasets" 
+
+
 '''
 this script is useful for doing the algorithm testing locally without needing 
 to build the docker image and run the container.
@@ -86,11 +90,11 @@ def create_ml_vol():
 
 def copy_example_files(dataset_name):     
     # data schema
-    shutil.copyfile(f"./examples/{dataset_name}_schema.json", os.path.join(data_schema_path, f"{dataset_name}_schema.json"))
+    shutil.copyfile(f"{local_datapath}/{dataset_name}/{dataset_name}_schema.json", os.path.join(data_schema_path, f"{dataset_name}_schema.json"))
     # train data    
-    shutil.copyfile(f"./examples/{dataset_name}_train.csv", os.path.join(train_data_path, f"{dataset_name}_train.csv"))    
+    shutil.copyfile(f"{local_datapath}/{dataset_name}/{dataset_name}_train.csv", os.path.join(train_data_path, f"{dataset_name}_train.csv"))    
     # test data     
-    shutil.copyfile(f"./examples/{dataset_name}_test.csv", os.path.join(test_data_path, f"{dataset_name}_test.csv"))    
+    shutil.copyfile(f"{local_datapath}/{dataset_name}/{dataset_name}_test.csv", os.path.join(test_data_path, f"{dataset_name}_test.csv"))    
     # hyperparameters
     shutil.copyfile("./examples/hyperparameters.json", os.path.join(hyper_param_path, "hyperparameters.json"))
 
@@ -134,66 +138,48 @@ def load_and_test_algo():
     predictions = predictor.predict_proba(test_data, data_schema)
     # save predictions
     utils.save_dataframe(predictions, testing_outputs_path, "test_predictions.csv")
-    # print(predictions.tail()) ; sys.exit()
     # score the results
-    results = score(test_data, predictions)  
+    results = score(test_data, predictions, data_schema)  
     print("done with predictions")
     return results
 
 
-def set_scoring_vars(dataset_name):
-    global target_field
-    if dataset_name == "car": 
-        target_field = "class"
-    elif dataset_name == "primary_tumor": 
-        target_field = "class"
-    elif dataset_name == "splice": 
-        target_field = "Class"
-    elif dataset_name == "statlog": 
-        target_field = "class"
-    elif dataset_name == "steel_plate_fault": 
-        target_field = "target"
-    elif dataset_name == "wine": 
-        target_field = "Wine class"
-    else: raise Exception(f"Error: Cannot find dataset = {dataset_name}")
-
-
-
-def score(test_data, predictions): 
-    class_names = predictions.columns[1:]    
-    pred_classes = pd.DataFrame(predictions[class_names], columns = class_names).idxmax(axis=1) 
+def score(test_data, predictions, data_schema): 
+    # we need to get a couple of field names in the test_data file to do the scoring 
+    # we get it using the schema file
+    id_field = data_schema["inputDatasets"]["multiClassClassificationBaseMainInput"]["idField"]
+    target_field = data_schema["inputDatasets"]["multiClassClassificationBaseMainInput"]["targetField"]
+        
+    pred_class_names = [ c for c in predictions.columns[1:]    ]  
     
-    accu = accuracy_score(test_data[target_field], pred_classes)    
-    f1 = f1_score(test_data[target_field], pred_classes, average='weighted')    
-    precision = precision_score(test_data[target_field], pred_classes, average='weighted')    
-    recall = recall_score(test_data[target_field], pred_classes, average='weighted')
-    auc = calculate_auc(test_data, predictions)     
-    results = { 
+    predictions["__pred_class"] = pd.DataFrame(predictions[pred_class_names], columns = pred_class_names).idxmax(axis=1)  
+    predictions = predictions.merge(test_data[[id_field, target_field]], on=[id_field])
+    pred_probabilities = predictions[pred_class_names].copy()
+    
+    Y = predictions[target_field].astype(str)
+    Y_hat = predictions["__pred_class"].astype(str)    
+    
+    accu = accuracy_score(Y , Y_hat)  
+    f1 = f1_score(Y , Y_hat, average='weighted')    
+    precision = precision_score(Y , Y_hat, average='weighted')      
+    recall = recall_score(Y , Y_hat, average='weighted') 
+    # -------------------------------------
+    # auc calculation         
+    name_to_idx_dict = {str(n):i for i,n in enumerate(pred_class_names)}
+    mapped_classes_true = Y.map(name_to_idx_dict)     
+    
+    auc = roc_auc_score(mapped_classes_true, pred_probabilities[pred_class_names].values, 
+        labels=np.arange(len(pred_class_names)), average='weighted', multi_class='ovo')     
+    
+    # -------------------------------------   
+    scores = { 
                "accuracy": np.round(accu,4), 
                "f1_score": np.round(f1, 4), 
                "precision": np.round(precision, 4), 
                "recall": np.round(recall, 4), 
                "auc_score": np.round(auc, 4), 
                }
-    return results
-
-
-def calculate_auc(test_data, predictions):
-    pred_class_names = list(predictions.columns[1:] )
-    obs_class_names =  list(set(test_data[target_field]))    
-    # find classes in test data that were not observed in training data (if any)
-    missing_classes = [c for c in obs_class_names if c not in pred_class_names]
-    class_names = pred_class_names + missing_classes  
-    for c in missing_classes: 
-        predictions[c] = 0.0        
-    
-    name_to_idx_dict = {n:i for i,n in enumerate(class_names)}
-    mapped_classes_true = test_data[target_field].map(name_to_idx_dict)     
-    auc = roc_auc_score(mapped_classes_true, predictions[class_names], 
-        labels=np.arange(len(class_names)), average='weighted', multi_class='ovo') 
-    
-    return auc
-    
+    return scores
 
 
 def save_test_outputs(results, run_hpt, dataset_name, print_results=False):    
@@ -225,7 +211,7 @@ def run_train_and_test(dataset_name, run_hpt, num_hpt_trials):
     if run_hpt: run_HPT(num_hpt_trials)               # run HPT and save tuned hyperparameters
     train_and_save_algo()        # train the model and save
     
-    set_scoring_vars(dataset_name=dataset_name)
+    # set_scoring_vars(dataset_name=dataset_name)
     results = load_and_test_algo()        # load the trained model and get predictions on test data
     
     end = time.time()
@@ -245,12 +231,12 @@ def run_train_and_test(dataset_name, run_hpt, num_hpt_trials):
 
 if __name__ == "__main__": 
     
-    num_hpt_trials = 30
+    num_hpt_trials = 60
     run_hpt_list = [False, True]
-    # run_hpt_list = [False]
+    run_hpt_list = [True]
     
     datasets = ["car", "primary_tumor", "splice", "statlog", "steel_plate_fault", "wine"]
-    # datasets = ["statlog"]
+    # datasets = ["car"]
     
     for run_hpt in run_hpt_list:
         all_results = []

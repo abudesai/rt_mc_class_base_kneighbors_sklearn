@@ -242,36 +242,16 @@ def get_preprocess_pipeline(pp_params, model_cfg):
         )           
     
     # ===============================================================
-    # ===== TARGET VARIABLE =====   
-    # one-hot encoder cat vars
-    # pipe_steps.append(
-    #     (
-    #         pp_step_names["TARGET_ONE_HOT_ENCODER"],
-    #         preprocessors.OneHotEncoderMultipleCols(                    
-    #             ohe_columns=[pp_params["target_attr_name"]],
-    #             max_num_categories=None
-    #         ),
-    #     )
-    # )  
+    # ===== TARGET VARIABLE =====  
+    # label binarizer
     pipe_steps.append(
         (
-            pp_step_names["TARGET_ONE_HOT_ENCODER"],
-            preprocessors.TargetOneHotEncoder(                    
+            pp_step_names["LABEL_ENCODER"],
+            preprocessors.CustomLabelEncoder( 
                 target_col=pp_params["target_attr_name"],
-                target_classes = pp_params["target_classes"]
-            ),
+                ),
         )
     )  
-    
-    # == DROP TARGET FEATURE (we keep the one-hot encoded columns)
-    pipe_steps.append(
-        (
-            pp_step_names["TARGET_DROPPER"],
-            preprocessors.ColumnSelector(
-                columns=[pp_params["target_attr_name"]],
-                selector_type='drop')
-        )
-    )   
     
     # ===============================================================
     # xy Splitter
@@ -292,11 +272,10 @@ def get_preprocess_pipeline(pp_params, model_cfg):
 
 
 def get_class_names(pipeline, model_cfg):
-    pp_step_names = model_cfg["pp_params"]["pp_step_names"]    
-    
-    target_ohe_lbl = pp_step_names['TARGET_ONE_HOT_ENCODER']
-    target_ohe = pipeline[target_ohe_lbl]
-    class_names = target_ohe.target_classes
+    pp_step_names = model_cfg["pp_params"]["pp_step_names"]   
+    lbl_binarizer_lbl = pp_step_names['LABEL_ENCODER']
+    lbl_binarizer = pipeline[lbl_binarizer_lbl]
+    class_names = lbl_binarizer.classes_
     return class_names
 
 
