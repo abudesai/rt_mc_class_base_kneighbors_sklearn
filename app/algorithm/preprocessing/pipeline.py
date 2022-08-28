@@ -4,12 +4,9 @@ from feature_engine.imputation import (
     CategoricalImputer,
     MeanMedianImputer,
 )
-from feature_engine.selection import DropFeatures
-from feature_engine.transformation import LogTransformer
 from feature_engine.wrappers import SklearnTransformerWrapper
-from sklearn.linear_model import Lasso
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler, LabelEncoder, MinMaxScaler, OneHotEncoder, PowerTransformer
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 import sys, os
 import joblib
 import pandas as pd 

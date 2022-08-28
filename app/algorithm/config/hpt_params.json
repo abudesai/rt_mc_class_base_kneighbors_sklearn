@@ -44,7 +44,7 @@
     "default": 30,
     "type": "int",
     "search_type": "uniform",
-    "range_low": 10,
+    "range_low": 5,
     "range_high": 50,
     "run_HPO": false
   }

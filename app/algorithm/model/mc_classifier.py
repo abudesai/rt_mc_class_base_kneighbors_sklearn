@@ -11,7 +11,7 @@ from sklearn.neighbors import KNeighborsClassifier
 
 
 model_fname = "model.save"
-MODEL_NAME = "mc_kneighbors_sklearn"
+MODEL_NAME = "multi_class_base_kneighbors_sklearn"
 
 
 class Classifier(): 
@@ -57,7 +57,7 @@ class Classifier():
 
     
     def save(self, model_path): 
-        joblib.dump(self.model, os.path.join(model_path, model_fname))
+        joblib.dump(self, os.path.join(model_path, model_fname))
         
 
 

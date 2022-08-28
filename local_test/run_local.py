@@ -178,6 +178,7 @@ def score(test_data, predictions, data_schema):
                "precision": np.round(precision, 4), 
                "recall": np.round(recall, 4), 
                "auc_score": np.round(auc, 4), 
+               "perc_pred_missing": np.round( 100 * (1 - predictions.shape[0] / test_data.shape[0]), 2)
                }
     return scores
 
@@ -185,7 +186,7 @@ def score(test_data, predictions, data_schema):
 def save_test_outputs(results, run_hpt, dataset_name, print_results=False):    
     df = pd.DataFrame(results) if dataset_name is None else pd.DataFrame([results])        
     df = df[["model", "dataset_name", "run_hpt", "num_hpt_trials", 
-             "accuracy", "f1_score", "precision", "recall", "auc_score",
+             "accuracy", "f1_score", "precision", "recall", "auc_score", "perc_pred_missing",
              "elapsed_time_in_minutes"]]
     
     if print_results: print(df)
@@ -231,9 +232,9 @@ def run_train_and_test(dataset_name, run_hpt, num_hpt_trials):
 
 if __name__ == "__main__": 
     
-    num_hpt_trials = 60
+    num_hpt_trials = 50
     run_hpt_list = [False, True]
-    run_hpt_list = [True]
+    # run_hpt_list = [False]
     
     datasets = ["car", "primary_tumor", "splice", "statlog", "steel_plate_fault", "wine"]
     # datasets = ["car"]
