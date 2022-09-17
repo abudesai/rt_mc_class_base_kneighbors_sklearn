@@ -17,7 +17,6 @@
     "categorical_vals": ["uniform", "distance"],
     "run_HPO": true
   },
-
   {
     "name": "p",
     "short_desc": "Power parameter for the Minkowski metric.",
@@ -28,7 +27,6 @@
     "range_high": 3,
     "run_HPO": true
   },
-
   {
     "name": "algorithm",
     "short_desc": "Algorithm used to compute the nearest neighbors.",
@@ -37,7 +35,6 @@
     "categorical_vals": ["auto", "ball_tree", "kd_tree"],
     "run_HPO": false
   },
-
   {
     "name": "leaf_size",
     "short_desc": "Leaf size passed to BallTree or KDTree.",
