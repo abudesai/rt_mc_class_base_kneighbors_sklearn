@@ -1,8 +1,9 @@
 # major part of code sourced from aws sagemaker example: 
 # https://github.com/aws/amazon-sagemaker-examples/blob/main/advanced_functionality/scikit_bring_your_own/container/decision_trees/predictor.py
 
-import io
-import pandas as pd
+
+import json
+import numpy as np, pandas as pd
 import flask
 import traceback
 import sys
@@ -17,7 +18,7 @@ from algorithm.model.mc_classifier import MODEL_NAME
 prefix = '/opt/ml_vol/'
 data_schema_path = os.path.join(prefix, 'inputs', 'data_config')
 model_path = os.path.join(prefix, 'model', 'artifacts')
-failure_path = os.path.join(prefix, 'outputs', 'errors', 'serve_failure')
+failure_path = os.path.join(prefix, 'outputs', 'errors', 'serve_failure.txt')
 
 
 # get data schema - its needed to set the prediction field name  
@@ -26,7 +27,7 @@ data_schema = utils.get_data_schema(data_schema_path)
 
 
 # initialize your model here before the app can handle requests
-model_server = ModelServer(model_path = model_path)
+model_server = ModelServer(model_path = model_path, data_schema = data_schema)
 
 
 # The flask app for serving predictions
@@ -44,34 +45,29 @@ def ping():
 
 @app.route("/infer", methods=["POST"])
 def infer():
-    """Do an inference on a single batch of data. In this sample server, we take data as CSV, convert
-    it to a pandas data frame for internal use and then convert the predictions back to CSV (which really
-    just means one prediction per line, since there's a single column.
+    """Do an inference on a single batch of data. In this sample server, we take data as a JSON object, convert
+    it to a pandas data frame for internal use and then convert the predictions back to JSON.
     """
-    data = None
-
     # Convert from CSV to pandas
-    if flask.request.content_type == "text/csv":
-        data = flask.request.data.decode("utf-8")
-        s = io.StringIO(data)
-        data = pd.read_csv(s)
-    else:                
+    if flask.request.content_type == "application/json":
+        req_data_dict = json.loads(flask.request.data.decode("utf-8"))
+        data = pd.DataFrame.from_records(req_data_dict["instances"])
+        print(f"Invoked with {data.shape[0]} records")
+    else:
         return flask.Response(
-            response="This predictor only supports CSV data", 
-            status=415, mimetype="text/plain"
+            response="This endpoint only supports application/json data",
+            status=415,
+            mimetype="text/plain",
         )
 
-    print(f"Invoked with {data.shape[0]} records")
-
     # Do the prediction
-    try: 
-        predictions = model_server.predict(data, data_schema)
-        # Convert from dataframe to CSV
-        out = io.StringIO()
-        predictions.to_csv(out, index=False)
-        result = out.getvalue()
-
-        return flask.Response(response=result, status=200, mimetype="text/csv")
+    try:
+        predictions_response = model_server.predict_to_json(data)
+        return flask.Response(
+            response=json.dumps({"predictions": predictions_response}),
+            status=200,
+            mimetype="application/json",
+        )
     except Exception as err:
         # Write out an error file. This will be returned as the failureReason to the client.
         trc = traceback.format_exc()
